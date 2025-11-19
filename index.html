@@ -1,0 +1,58 @@
+<body style="background:white"></body>
+
+<!-- Libraries -->
+<script src="https://algorithmicmusic.online/js/libs/nn.min.js"></script>
+<script src="https://unpkg.com/tone"></script>
+<script src="https://algorithmicmusic.online/js/viz-helpers.js"></script>
+
+<script>
+/* global Tone */
+
+// ----------------------------------------------------
+// SIGNAL CHAIN (from your Mediation #3)
+// ----------------------------------------------------
+const osc = new Tone.Oscillator("A3", "sawtooth").start()
+const filter = new Tone.Filter(800, "lowpass")
+const distortion = new Tone.Distortion(0.1)
+const gain = new Tone.Gain(0.3)
+
+osc.connect(filter)
+filter.connect(distortion)
+distortion.connect(gain)
+gain.toDestination()
+
+// ----------------------------------------------------
+// SEQUENCER (from Mediation #5)
+// ----------------------------------------------------
+const beats = 2
+const measures = 2
+
+// Melody data
+const melody = [
+  [{ pitch: "A3", dur: "8n" }],
+  [{ pitch: "C4", dur: "8n" }],
+  [{ pitch: "E4", dur: "8n" }],
+  [{ pitch: "G4", dur: "8n" }]
+]
+
+// Set Transport details
+Tone.Transport.bpm.value = 110
+Tone.Transport.timeSignature = beats
+Tone.Transport.loop = true
+Tone.Transport.loopEnd = measures + "m"
+
+// Play function
+function play(time) {
+  const pos = Tone.Transport.position.split(".").map(Number)
+  const bar = pos[0] % measures
+  const beat = pos[1] % melody.length
+
+  const note = melody[beat][0]
+
+  osc.frequency.setValueAtTime(Tone.Frequency(note.pitch), time)
+}
+
+// Start Transport loop
+new Tone.Loop(play, "4n").start(0)
+
+ 
