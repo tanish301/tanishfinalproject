@@ -1,58 +1,147 @@
-<body style="background:white"></body>
+<body style="background:white;"></body>
 
-<!-- Libraries -->
 <script src="https://algorithmicmusic.online/js/libs/nn.min.js"></script>
 <script src="https://unpkg.com/tone"></script>
 <script src="https://algorithmicmusic.online/js/viz-helpers.js"></script>
 
 <script>
-/* global Tone */
+/* global nn, Tone, viz */
 
-// ----------------------------------------------------
-// SIGNAL CHAIN (from your Mediation #3)
-// ----------------------------------------------------
-const osc = new Tone.Oscillator("A3", "sawtooth").start()
-const filter = new Tone.Filter(800, "lowpass")
-const distortion = new Tone.Distortion(0.1)
-const gain = new Tone.Gain(0.3)
 
-osc.connect(filter)
-filter.connect(distortion)
-distortion.connect(gain)
-gain.toDestination()
+nn.create('h2')
+  .content('Tanish Final Project: Different Motions and the Effects On Sound ')
+  .addTo('body');
 
-// ----------------------------------------------------
-// SEQUENCER (from Mediation #5)
-// ----------------------------------------------------
+nn.create('p')
+  .content('Move the trackpad left to right to change the chorus, and up to down to make the sound sharper or softer.')
+  .addTo('body');
+
+
+const wave = viz.createWaveform();
+const spec = viz.createSpectrum({ range: [200, 215] });
+
+const chorus = new Tone.Chorus(10, 5, 6).start();
+const filter = new Tone.Filter(1200, 'lowpass');
+const gain = new Tone.Gain(0.25);
+
+gain.toDestination();
+filter.connect(gain);
+chorus.connect(filter);
+gain.connect(wave);
+gain.connect(spec);
+
+
+const synth = new Tone.PolySynth().connect(chorus);
+
+const oct = 2
+const measures = 3
 const beats = 2
-const measures = 2
 
-// Melody data
 const melody = [
-  [{ pitch: "A3", dur: "8n" }],
-  [{ pitch: "C4", dur: "8n" }],
-  [{ pitch: "E4", dur: "8n" }],
-  [{ pitch: "G4", dur: "8n" }]
-]
+  // first bar
+  [
+    { pitch: 'A3', dur: '5n'},
+    { pitch: 'B4', dur: '0.2n'},
+    { pitch: 'D4', dur: '2n'},
+    { pitch: 'E4', dur: '2n'}
+  ],
+ 
+  [
+    { pitch: 'F4', dur: '7n'},
+    { pitch: 'D4', dur: '1.5n'},
+    { pitch: 'D2', dur: '0.5n'},
+    { pitch: 'A5', dur: '2n'}
+  ]
+];
 
-// Set Transport details
-Tone.Transport.bpm.value = 110
-Tone.Transport.timeSignature = beats
-Tone.Transport.loop = true
-Tone.Transport.loopEnd = measures + "m"
+Tone.Transport.bpm.value = nn.randomInt(20, 500);
+Tone.Transport.timeSignature = beats;
+Tone.Transport.loop = true;
+Tone.Transport.loopEnd = measures + 'm';
 
-// Play function
-function play(time) {
-  const pos = Tone.Transport.position.split(".").map(Number)
-  const bar = pos[0] % measures
-  const beat = pos[1] % melody.length
-
-  const note = melody[beat][0]
-
-  osc.frequency.setValueAtTime(Tone.Frequency(note.pitch), time)
+ function toggle () {
+  if (Tone.Transport.state === 'stopped') {
+    Tone.start().then(() => {
+      Tone.Transport.start()
+      toggleBtn.content('stop')
+    })
+  } else {
+    Tone.Transport.stop()
+    toggleBtn.content('start')
+  }
 }
 
-// Start Transport loop
-new Tone.Loop(play, "4n").start(0)
 
- 
+function play (time) {
+  const pos = Tone.Transport.position.split(':').map(Number);
+  const bar = pos[0];
+  const beat = pos[1];
+  const note = melody[bar][beat];
+  synth.triggerAttackRelease(note.pitch, note.dur, time);
+  roll.update();
+}
+
+new Tone.Loop(play).start();
+
+const filterLabel = nn.create('p')
+  .content('Filter cutoff: 500 Hz')
+  .addTo('body');
+
+const chorusLabel = nn.create('p')
+  .content('Chorus depth: 0.25')
+  .addTo('body');
+
+let lastX = null;
+let lastY = null;
+
+window.addEventListener('mousemove', (e) => {
+  if (lastX === null) {
+    lastX = e.clientX;
+    lastY = e.clientY;
+    return;
+  }
+
+  const dx = e.clientX - lastX;
+  const dy = e.clientY - lastY;
+
+  lastX = e.clientX;
+  lastY = e.clientY;
+
+  let newCutoff = filter.frequency.value - dy * 10;  
+  newCutoff = Math.max(200, Math.min(5000, newCutoff));
+  filter.frequency.value = newCutoff;
+  filterLabel.content('Filter cutoff: ' + Math.round(newCutoff) + ' Hz');
+
+  
+  let newDepth = chorus.depth + dx * 0.002;
+  newDepth = Math.max(0.1, Math.min(1.0, newDepth));
+  chorus.depth = newDepth;
+  chorusLabel.content('Chorus depth: ' + newDepth.toFixed(2));
+});
+
+
+const toggleBtn = nn.create('button')
+  .content('start')
+  .addTo('body')
+  .on('click', toggle);
+
+nn.create('label')
+  .content('notes:')
+  .addTo('body');
+
+const roll = viz.createPianoRoll({
+  transport: Tone.Transport,
+  notes: [`C${oct}`, `C${oct + 1}`],
+  measures,
+  beats
+});
+
+nn.times(measures, m => {
+  nn.times(beats, b => {
+    const note = melody[m][b];
+    const step = (m * beats) + b;
+    roll.add(note.pitch, step, note.dur);
+  });
+});
+
+</script>
